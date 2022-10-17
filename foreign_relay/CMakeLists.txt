@@ -3,6 +3,11 @@ project(foreign_relay)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp topic_tools)
+
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+)
+
 catkin_package(
   CATKIN_DEPENDS roscpp topic_tools)
 
