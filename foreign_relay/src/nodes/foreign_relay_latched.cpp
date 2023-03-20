@@ -100,13 +100,13 @@ void in_cb(const ros::MessageEvent<ShapeShifter>& msg_event)
 
 int main(int argc, char **argv)
 {
-  if (argc < 3)
+  if (argc < 4)
   {
-    printf("\nusage: unreliable_relay FOREIGN_MASTER_URI IN_TOPIC [OUT_TOPIC]\n\n");
+    printf("\nusage: foreign_relay_latched FOREIGN_MASTER_URI FOREIGN_TOPIC LOCAL_TOPIC\n\n");
     return 1;
   }
   std::string topic_name;
-  if(!getBaseName(string(argv[2]), topic_name))
+  if(!getBaseName(string(argv[3]), topic_name))
     return 1;
   ros::init(argc, argv, topic_name + string("_foreign_relay"),
             ros::init_options::AnonymousName);
@@ -115,14 +115,29 @@ int main(int argc, char **argv)
     ROS_FATAL("Couldn't parse the foreign master URI [%s] into a host:port pair.", argv[1]);
     return 1;
   }
-  if (argc == 3)
-    g_output_topic = string(argv[2])+string("_foreign_relay");
-  else // argc == 3
-    g_output_topic = string(argv[3]);
+  g_output_topic = string(argv[2]);
   ros::NodeHandle n;
   ros::NodeHandle pnh("~");
   g_node = &pnh;
-  ros::Subscriber sub = n.subscribe<ShapeShifter>(string(argv[2]), 10, &in_cb);
+
+  boost::shared_ptr<ros::Subscriber> sub(new ros::Subscriber);
+  {
+    // Subscribe at local master.
+    ros::SubscribeOptions ops;
+    ops.topic = string(argv[3]);
+    ops.queue_size = 10;
+    ops.md5sum = ros::message_traits::md5sum<topic_tools::ShapeShifter>();
+    ops.datatype = ros::message_traits::datatype<topic_tools::ShapeShifter>();
+    ops.helper = ros::SubscriptionCallbackHelperPtr(
+        new ros::SubscriptionCallbackHelperT<const ros::MessageEvent<topic_tools::ShapeShifter const>& >(
+            boost::bind(&in_cb, _1)
+        )
+    );
+    *sub = n.subscribe(ops);
+  }
+
+  //ros::Subscriber sub = n.subscribe<ShapeShifter>(string(argv[2]), 10, &in_cb);
+
   ros::spin();
   foreign_unadvertise();
   return g_error;
